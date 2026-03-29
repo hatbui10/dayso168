@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Editor Ultra Pro - Fixed Layout</title>
+<style>
+  * { box-sizing: border-box; }
+  
+  /* Khóa cứng màn hình, không cho body cuộn */
+  body { 
+    margin: 0; 
+    font-family: sans-serif; 
+    display: flex; 
+    flex-direction: column; 
+    height: 100vh; 
+  
+    background: #1a1a1a; 
+    color: white; 
+    overflow: hidden; 
+  }
+  
+  /* THANH CÔNG CỤ - Cố định chiều cao */
+  .topbar { 
+    display: flex; 
+    gap: 6px; 
+    padding: 10px; 
+    background: #111; 
+    border-bottom: 1px solid #333; 
+    overflow-x: auto; 
+    align-items: center; 
+    height: 50px; 
+    flex-shrink: 0; 
+    z-index: 10;
+   margin:15px auto;
+  }
+  .topbar button { padding: 8px 12px; border: none; border-radius: 6px; background: #333; color: white; cursor: pointer; font-size: 11px; white-space: nowrap; }
+  .btn-reload { background: #ce9178 !important; color: #000 !important; font-weight: bold; }
+  .btn-history { background: #444 !important; color: #fff !important; }
+  .btn-run { background: #28a745 !important; margin-left: auto; font-weight: bold; padding: 8px 20px !important; }
+
+  /* HỆ THỐNG TAB - Cố định chiều cao */
+  .tab-bar { 
+    display: flex; 
+    background: #252526; 
+    padding-left: 10px; 
+    gap: 2px; 
+    border-bottom: 1px solid #333; 
+    user-select: none; 
+    height: 40px; 
+    flex-shrink: 0; 
+  }
+  .tab-item { padding: 8px 20px; cursor: pointer; background: #2d2d2d; color: #969696; font-size: 12px; font-weight: 500; border-radius: 5px 5px 0 0; margin-top: 5px; display: flex; align-items: center; gap: 8px; }
+  .tab-item.active { background: #1e1e1e; color: #ffffff; border-bottom: 2px solid #007acc; }
+
+  /* NỘI DUNG CHÍNH - Chiếm phần còn lại và KHÔNG tràn */
+  .main-content { 
+    flex: 1; 
+    position: relative; 
+  
+    display: flex; 
+    flex-direction: column; 
+    min-height: 0; /* Quan trọng để flex child không đẩy tung layout */
+  }
+
+  .window-pane { 
+    display: none; 
+    height: 95%; 
+    width: 100%; 
+    flex-direction: column; 
+   
+    min-height: 0; 
+  }
+  .window-pane.active { display: flex; }
+
+  /* EDITOR */
+  .editor-container { 
+    display: flex; 
+    flex: 1; 
+    background: #1e1e1e; 
+  
+    overflow: hidden; 
+    position: relative; 
+    min-height: 0;
+  }
+  .line-numbers { width: 40px; padding: 15px 0; text-align: center; background: #252526; color: #858585; font-family: monospace; font-size: 14px; line-height: 20px; user-select: none; overflow: hidden; }
+  
+  textarea { 
+    flex: 1; 
+    background: transparent; 
+    color: #9cdcfe; 
+    padding: 15px; 
+    font-family: 'Consolas', monospace; 
+    font-size: 14px; 
+    line-height: 20px; 
+    border: none; 
+    outline: none; 
+    resize: none; 
+    white-space: pre; 
+    overflow: auto; 
+  }
+
+  /* PREVIEW - Cố định khung hình */
+  #pane-preview { 
+    flex: 1; 
+    padding: 15px; 
+    background: #1a1a1a; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    min-height: 0;
+  }
+  
+  iframe { 
+    width: 100%; 
+    height: 100%; 
+    border: none; 
+    background: white; 
+    border-radius: 8px; 
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5); 
+    display: block;
+  }
+
+  #error-log { display: none; background: #4a1515; color: #ff9999; padding: 10px; font-family: monospace; font-size: 12px; flex-shrink: 0; }
+
+  /* POPUP */
+  .popup {
+    display: none; position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); 
+    width: 95%; background: #252526; border: 2px solid #0078d4; padding: 2px 3px; 
+    z-index: 9999; border-radius: 8px; box-shadow: 0 -5px 15px rgba(0,0,0,0.5);
+  }
+  .grid { 
+  display: flex; 
+  flex-flow: column wrap; /* Giữ nguyên để chia 2 hàng */
+  height: 65px;          /* Tăng nhẹ chiều cao để không bị cấn padding */
+  gap: 8px; 
+  margin-top: 5px; 
+  overflow-x: auto;      /* Cho phép cuộn ngang */
+  overflow-y: hidden; 
+  padding: 5px;          /* Thêm padding để nút không dính sát viền popup */
+  align-content: flex-start; /* Quan trọng: Đẩy các cột sát nhau về bên trái */
+}
+
+.grid button {
+  flex: 0 0 auto;        /* Không cho phép nút bị co lại */
+  width: max-content;    /* Ép nút luôn rộng bằng đúng độ dài chữ */
+  display: inline-block; /* Đảm bảo tính chất khối nội dòng */
+  
+  padding: 4px 12px;     /* Tăng padding trái/phải để chữ không chạm biên */
+  height: calc(50% - 5px); /* Chia đôi chiều cao grid thành 2 hàng */
+  
+  white-space: nowrap;   /* Tuyệt đối không cho chữ xuống dòng */
+  
+  /* Các phần style giữ nguyên */
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #333;
+  color: #ddd;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+
+
+
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="btn-history" onclick="document.getElementById('file-input').click()">📂 Mở File</button>
+  <input type="file" id="file-input" style="display:none" accept=".html,.txt,.css,.js" onchange="loadFile(this)">
+  <button class="btn-reload" onclick="resetEditor()">🔄 Reset</button>
+  <button class="btn-history" onclick="undo()">↩ Undo</button>
+  <button class="btn-history" onclick="redo()">↪ Redo</button>
+  <button onclick="openPopup('quick')">⌨️ Phím nhanh</button>
+  <button onclick="openPopup('html')">HTML</button>
+  <button onclick="openPopup('css')">CSS</button>
+  <button onclick="openPopup('js')">JS</button>
+  <button class="btn-run" style="background: #007acc !important;" onclick="saveCurrentFile()">💾 LƯU FILE</button>
+  <button class="btn-run" onclick="runCode()">CHẠY ▶</button>
+</div>
+
+<div class="tab-bar" id="tab-container">
+  <div class="tab-item active" id="tab-editor" onclick="switchTab('editor')">📄 CHỈNH SỬA CODE</div>
+  <div class="tab-item" id="tab-preview" onclick="switchTab('preview')">👁️ KẾT QUẢ</div>
+  
+</div>
+
+<div class="main-content">
+  <div id="pane-editor" class="window-pane active">
+    <div class="editor-container">
+      <div id="line-numbers" class="line-numbers"></div>
+      <textarea id="code" spellcheck="false" oninput="handleInput()" onscroll="syncScroll()"><h1>Chào mừng bạn!</h1>
+<p>Dùng nút Undo/Redo để quản lý lịch sử code.</p>
+<script>
+  console.log("Sẵn sàytng!");
+</script></textarea>
+    </div>
+  </div>
+  <div id="pane-preview" class="window-pane">
+    <iframe id="preview"></iframe>
+  </div>
+  <div id="error-log"></div>
+</div>
+
+<div class="popup" id="popup">
+  <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+    <b id="popup-title" style="color:#007acc; font-size:12px;">TOOLS</b>
+    <span onclick="closePopup()" style="color:red; cursor:pointer; font-weight:bold; padding: 2px 8px;">[ĐÓNG]</span>
+  </div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+// Giữ nguyên logic JavaScript của bạn
+const textarea = document.getElementById("code");
+const lineNumbers = document.getElementById("line-numbers");
+const errorLog = document.getElementById("error-log");
+const preview = document.getElementById("preview");
+const grid = document.getElementById("grid");
+const popup = document.getElementById("popup");
+const tabContainer = document.getElementById("tab-container");
+
+
+
+// QUẢN LÝ FILE VÀ TAB
+let files = [{ name: "index.html", content: "<h1>Chào mừng!</h1>" }];
+let activeIdx = 0;
+let historyStack = [files[0].content];
+let redoStack = [];
+
+function renderTabs() {
+  tabContainer.innerHTML = '';
+  files.forEach((file, index) => {
+    const tab = document.createElement('div');
+    tab.className = `tab-item ${index === activeIdx ? 'active' : ''}`;
+    tab.innerHTML = `📄 ${file.name}`;
+    tab.onclick = () => switchFile(index);
+    tabContainer.appendChild(tab);
+  });
+  
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn-add-tab';
+  addBtn.innerText = '+';
+  addBtn.onclick = () => {
+    const name = prompt("Tên file mới:", "file_" + (files.length + 1) + ".html");
+    if(name) {
+      files.push({ name: name, content: "" });
+      switchFile(files.length - 1);
+    }
+  };
+  tabContainer.appendChild(addBtn);
+}
+
+function switchFile(index) {
+  // Lưu nội dung cũ trước khi chuyển
+  files[activeIdx].content = textarea.value;
+  
+  activeIdx = index;
+  textarea.value = files[activeIdx].content;
+  
+  // Reset lịch sử cho file mới (hoặc bạn có thể lưu history vào object file nếu muốn nâng cao)
+  historyStack = [textarea.value];
+  redoStack = [];
+  
+  renderTabs();
+  updateLineNumbers();
+  switchTab('editor');
+}
+
+
+
+function saveToHistory() {
+  const currentVal = textarea.value;
+  if (currentVal !== historyStack[historyStack.length - 1]) {
+    historyStack.push(currentVal);
+    redoStack = [];
+    if (historyStack.length > 50) historyStack.shift();
+  }
+}
+
+function undo() {
+  if (historyStack.length > 1) {
+    redoStack.push(historyStack.pop());
+    textarea.value = historyStack[historyStack.length - 1];
+    updateLineNumbers();
+  }
+}
+
+function redo() {
+  if (redoStack.length > 0) {
+    const next = redoStack.pop();
+    historyStack.push(next);
+    textarea.value = next;
+    updateLineNumbers();
+  }
+}
+
+function handleInput() { saveToHistory(); updateLineNumbers(); }
+function syncScroll() { lineNumbers.scrollTop = textarea.scrollTop; }
+
+function updateLineNumbers(errorLine = null) {
+  const lines = textarea.value.split('\n').length;
+  let lineStr = '';
+  for (let i = 1; i <= lines; i++) {
+    lineStr += `<div style="height:20px" class="${i === errorLine ? 'line-error' : ''}">${i}</div>`;
+  }
+  lineNumbers.innerHTML = lineStr;
+  syncScroll();
+}
+
+function runCode() {
+  const userCode = textarea.value;
+  errorLog.style.display = "none";
+  // Thêm bọc CSS để iframe tự cuộn bên trong thay vì đẩy cha
+  const blobContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: white; font-family: sans-serif; }
+        #app-wrapper { height: 100%; overflow: auto; padding: 15px; box-sizing: border-box; }
+      </style>
+      <script>
+        window.onerror=function(m,u,l,c){
+          window.parent.postMessage({type:'error',msg:m,line:l,col:c},'*');
+          return true;
+        };
+      <\/script>
+    </head>
+    <body><div id="app-wrapper">${userCode}</div></body>
+    </html>`;
+  const blob = new Blob([blobContent], { type: 'text/html;charset=UTF-8' });
+  preview.src = URL.createObjectURL(blob);
+}
+
+function switchTab(type) {
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + type).classList.add('active');
+  document.querySelectorAll('.window-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('pane-' + type).classList.add('active');
+  if(type === 'preview') runCode();
+}
+
+// Data phím nhanh giữ nguyên
+const data = {
+  quick: [{n:"Tab ⮕", a:()=>ins("  ")}, {n:"#", a:()=>ins("#")}, {n:".", a:()=>ins(".")}, {n:"(", a:()=>ins("(")}, {n:")", a:()=>ins(")")}, {n:"&", a:()=>ins("&")}, {n:"/* CSS */", a:()=>ins("/* */")}, {n:"// JS", a:()=>ins("// ")}, {n:"/* JS-Khối */", a:()=>ins("/* */")}, {n:"_", a:()=>ins("_")}, {n:"<", a:()=>ins("<")}, {n:">", a:()=>ins(">")}, {n:";", a:()=>ins(";")}, {n:"' '", a:()=>ins("''")}, {n:'" "', a:()=>ins('""')}],
+  
+  // SỬA ĐOẠN NÀY TRONG CODE CỦA BẠN
+html: [
+  {n:'id=""', a:()=>ins('id=""')}, 
+  {n:'class=""', a:()=>ins('class=""')}, 
+  {n:'src=""', a:()=>ins('src=""')}, 
+  {n:'href=""', a:()=>ins('href=""')}, 
+  {n:'style=""', a:()=>ins('style=""')}, 
+  {n:'type=""', a:()=>ins('type=""')}, 
+  {n:'alt=""', a:()=>ins('alt=""')}, 
+  {n:"<div>", a:()=>ins("<div></div>")},   // Đổi wrap thành ins
+  {n:"<span>", a:()=>ins("<span></span>")}, // Đổi wrap thành ins
+  {n:"<h1>", a:()=>ins("<h1></h1>")},     // Đổi wrap thành ins
+  {n:"<p>", a:()=>ins("<p></p>")},         // Đổi wrap thành ins
+  {n:"<a>", a:()=>ins("<a></a>")},         // Đổi wrap thành ins
+  {n:"<img>", a:()=>ins('<img src="" alt="">')}, 
+  {n:"<script>", a:()=>ins("<script>\n\n<\/script>")}, 
+  {n:"<style>", a:()=>ins("<style>\n\n</style>")}
+],  
+  
+  css: [{n:"f-size", a:()=>ins("font-size: 16px;")}, {n:"f-bold", a:()=>ins("font-weight: bold;")}, {n:"color", a:()=>ins('color: #ffffff;')}, {n:"t-center", a:()=>ins("text-align: center;")}, {n:"l-height", a:()=>ins("line-height: 1.5;")}, {n:"family", a:()=>ins("font-family: sans-serif;")}, {n:"flex", a:()=>ins("display: flex;")}, {n:"center", a:()=>ins("justify-content: center; align-items: center;")}, {n:"padding", a:()=>ins("padding: 10px;")}, {n:"border", a:()=>ins("border: 1px solid #444;")}, {n:"radius", a:()=>ins("border-radius: 8px;")}],
+  js: [{n:"log", a:()=>ins('console.log("");')}, {n:"alert", a:()=>ins('alert("");')}, {n:"if else", a:()=>ins('if () {\n  \n} else {\n  \n}')}, {n:"function", a:()=>ins('function name() {\n  \n}')}, {n:"getById", a:()=>ins('document.getElementById("");')}, {n:"addEvent", a:()=>ins('.addEventListener("", () => {\n  \n});')}]
+};
+
+
+
+
+function ins(val) {
+  const s = textarea.selectionStart;
+  const e = textarea.selectionEnd;
+  
+  // 1. Chèn nội dung
+  textarea.setRangeText(val, s, e, 'end'); 
+  
+  // 2. Tính toán vị trí mới
+  let newPos = s + val.length; 
+
+  // Nếu là thẻ HTML dính liền kiểu <div></div>
+  if (val.includes('></')) {
+    newPos = s + val.indexOf('>') + 1;
+  } 
+  // Nếu là cặp ngoặc "" hoặc () hoặc {}
+  else if (val.endsWith('""') || val.endsWith('()') || val.endsWith('{}')) {
+    newPos = s + val.length - 1;
+  }
+  // Nếu là các thuộc tính như id="" (con trỏ vào giữa "")
+  else if (val.endsWith('=""')) {
+      newPos = s + val.length - 1;
+  }
+
+  // 3. Ép con trỏ nhảy vào vị trí đã tính
+  setTimeout(() => {
+    textarea.focus();
+    textarea.setSelectionRange(newPos, newPos);
+  }, 10);
+
+  saveToHistory();
+  updateLineNumbers();
+}
+
+
+
+function wrap(open, close) { const s = textarea.selectionStart, e = textarea.selectionEnd; const sel = textarea.value.substring(s, e); textarea.setRangeText(open + sel + close, s, e, 'end'); textarea.focus(); saveToHistory(); updateLineNumbers(); }
+function openPopup(type) { popup.style.display = "block"; document.getElementById("popup-title").innerText = type.toUpperCase(); grid.innerHTML = ''; data[type].forEach(item => { const btn = document.createElement('button'); btn.innerText = item.n; btn.onclick = item.a; grid.appendChild(btn); }); }
+function closePopup() { popup.style.display = "none"; }
+
+window.addEventListener('message', (e) => {
+  if (e.data.type === 'error') {
+    errorLog.style.display = "block";
+    errorLog.innerHTML = `⚠️ Lỗi: ${e.data.msg} (Dòng ${e.data.line})`;
+    switchTab('editor');
+    updateLineNumbers(e.data.line);
+  }
+});
+
+
+function loadFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  
+  reader.onload = function(e) {
+    const content = e.target.result;
+    
+    // Cập nhật nội dung vào textarea
+    textarea.value = content;
+    
+    // Lưu vào lịch sử để có thể Undo
+    saveToHistory();
+    
+    // Cập nhật lại số dòng
+    updateLineNumbers();
+    
+    // Reset input để có thể chọn lại chính file đó nếu muốn
+    input.value = ''; 
+    
+    alert("Đã tải file: " + file.name);
+  };
+
+  reader.onerror = function() {
+    alert("Không thể đọc file này!");
+  };
+
+  reader.readAsText(file);
+}
+
+function saveCurrentFile() {
+
+  const activeFile = files[activeIdx];
+  const text = textarea.value;
+  const filename = activeFile ? activeFile.name : "code.html";
+  
+  const blob = new Blob([text], { type: "text/plain" });
+  const anchor = document.createElement("a");
+  
+  anchor.download = filename;
+  anchor.href = window.URL.createObjectURL(blob);
+  anchor.target = "_blank";
+  anchor.style.display = "none"; // Không hiển thị nút này
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+}
+
+function saveToLocal() {
+   const activeFile = files[activeIdx];   
+   activeFile.content = textarea.value;
+    localStorage.setItem('myEditorFiles', JSON.stringify(files));
+}
+// Gọi hàm này trong oninput của textarea
+
+
+function resetEditor() { if(confirm("Reset code?")) { textarea.value = "<h1>Chào mừng!</h1>"; historyStack = [textarea.value]; redoStack = []; updateLineNumbers(); } }
+updateLineNumbers();
+</script>
+</body>
+</html>
+
