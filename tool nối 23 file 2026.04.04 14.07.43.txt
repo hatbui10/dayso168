@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon File Merger Pro</title>
+    <style>
+        :root {
+            --neon-cyan: #00f3ff;
+            --neon-pink: #ff00ff;
+            --bg-dark: #0a0b10;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* Glassmorphism Container */
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            width: 90%;
+            max-width: 800px;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--neon-cyan);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px var(--neon-cyan);
+            margin-bottom: 30px;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--neon-pink);
+            padding: 30px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            box-shadow: 0 0 15px var(--neon-pink);
+            background: rgba(255, 0, 255, 0.05);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
+        }
+
+        .btn-merge {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+
+        .btn-export {
+            background: var(--neon-pink);
+            color: #fff;
+            box-shadow: 0 0 10px var(--neon-pink);
+        }
+
+        button:disabled {
+            filter: grayscale(1);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #status {
+            margin-top: 15px;
+            color: #00ffaa;
+            font-size: 0.9em;
+        }
+
+        textarea {
+            width: 100%;
+            height: 300px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #00f3ff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            resize: none;
+            font-family: 'Courier New', Courier, monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Data Scanner Merger</h1>
+        
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <p>Nhấp để chọn 23 file hoặc kéo thả vào đây</p>
+            <input type="file" id="fileInput" multiple accept=".txt" style="display:none">
+        </div>
+
+        <div id="status">Chưa có file nào được chọn</div>
+
+        <div class="btn-group">
+            <button class="btn-merge" id="mergeBtn">Nối & Lọc Dữ Liệu</button>
+            <button class="btn-export" id="exportBtn" disabled>Xuất File .TXT</button>
+        </div>
+
+        <textarea id="preview" placeholder="Nội dung sau khi nối sẽ hiển thị ở đây..."></textarea>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const status = document.getElementById('status');
+        const mergeBtn = document.getElementById('mergeBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const preview = document.getElementById('preview');
+
+        let mergedContent = "";
+
+        fileInput.addEventListener('change', () => {
+            const fileCount = fileInput.files.length;
+            status.innerText = fileCount > 0 ? `Đã chọn ${fileCount} file.` : "Chưa có file nào được chọn";
+        });
+
+        mergeBtn.addEventListener('click', async () => {
+            const files = fileInput.files;
+            if (files.length === 0) return alert("Vui lòng chọn file trước!");
+
+            let allData = [];
+            
+            for (let file of files) {
+                const text = await file.text();
+                // Tách thành các dòng/số dựa trên khoảng trắng hoặc xuống dòng
+                const lines = text.split(/[\s,]+/);
+                allData = allData.concat(lines);
+            }
+
+            // Logic xử lý dữ liệu đặc thù
+            // 1. Loại bỏ trùng lặp
+            // 2. Lọc các chuỗi ít hơn 10 số
+            const filteredData = [...new Set(allData)].filter(item => {
+                const cleanItem = item.trim();
+                return cleanItem.length >= 10 && !isNaN(cleanItem);
+            });
+
+            mergedContent = filteredData.join('\n');
+            preview.value = mergedContent;
+            
+            if (mergedContent) {
+                exportBtn.disabled = false;
+                status.innerText = `Nối thành công! Đã lọc còn ${filteredData.length} mục hợp lệ.`;
+            }
+        });
+
+                exportBtn.addEventListener('click', () => {
+            if (!mergedContent) return;
+
+            // Tạo 4 số ngẫu nhiên để tên file ngắn gọn
+            const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+            const fileName = `file nối ${randomSuffix}.txt`;
+
+            const blob = new Blob([mergedContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName; // Tên file mới: file nối XXXX.txt
+            document.body.appendChild(a);
+            a.click();
+            
+            // Dọn dẹp bộ nhớ
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+    </script>
+</body>
+</html>
