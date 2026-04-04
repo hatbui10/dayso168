@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyzer v31.0 - Auto Focus Fixed</title>
+    <style>
+        :root {
+            --bg-body: #0a0a0a;
+            --bg-container: #161616;
+            --text-main: #e0e0e0;
+            --primary: #bb86fc;
+            --secondary: #03dac6;
+            --surface: #222222;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --blue-light: #03a9f4;
+        }
+
+        body { font-family: 'Consolas', monospace; padding: 10px; background: var(--bg-body); color: var(--text-main); margin: 0; }
+        .container { max-width: 650px; margin: auto; background: var(--bg-container); padding: 15px; border-radius: 12px; border: 1px solid #333; }
+        
+        .row-file { background: var(--surface); padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #444; display: flex; justify-content: space-between; align-items: center; }
+        .row-display { background: #000; padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #444; display: flex; justify-content: space-evenly; }
+        .display-item { text-align: center; }
+        .display-item label { display: block; font-size: 0.75rem; color: #888; margin-bottom: 5px; }
+        .val-box { color: var(--secondary); font-size: 1.8rem; font-weight: bold; }
+
+        .row-action { display: flex; gap: 8px; margin-bottom: 10px; height: 85px; }
+        .box-stats { flex: 1.5; background: #1a1a1a; border: 1px solid #444; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; justify-content: center; }
+        .stat-line { font-weight: bold; font-size: 0.9rem; display: flex; justify-content: space-between; }
+        .c-yellow { color: var(--warning); }
+        .c-blue { color: var(--blue-light); }
+
+        .box-input { flex: 1; background: var(--surface); border: 2px solid var(--primary); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .box-input label { font-size: 0.6rem; color: var(--primary); font-weight: bold; margin-bottom: 2px; }
+        /* Thêm hiệu ứng focus rõ ràng hơn */
+        .box-input:focus-within { border-color: #fff; box-shadow: 0 0 10px var(--primary); }
+        
+        .n-input { background: transparent; border: none; color: #fff; width: 100%; text-align: center; font-size: 2rem; font-weight: bold; outline: none; }
+
+        .box-range { flex: 1; background: var(--surface); border: 1px solid var(--secondary); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .box-range label { font-size: 0.6rem; color: var(--secondary); font-weight: bold; margin-bottom: 2px; }
+        .range-input { background: transparent; border: none; color: var(--secondary); width: 100%; text-align: center; font-size: 1.8rem; font-weight: bold; outline: none; }
+
+        .result-wrapper { display: flex; gap: 10px; margin-bottom: 10px; }
+        .text-group { flex: 1; display: flex; flex-direction: column; }
+        .text-group label { font-size: 0.7rem; color: #888; margin-bottom: 4px; font-weight: bold; }
+        
+        textarea {
+            width: 100%; height: 350px; background: #000; color: var(--secondary);
+            border: 1px solid #444; border-radius: 8px; padding: 8px;
+            font-size: 1.1rem; resize: none; line-height: 1.4; box-sizing: border-box;
+        }
+        #sortedText { color: #fff; border-color: var(--secondary); }
+
+        .copy-btn { background: var(--success); color: white; width: 100%; padding: 12px; font-size: 1rem; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .clear-btn { background: #444; color: #aaa; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
+        
+        .footer-stats { margin-top: 15px; padding-top: 10px; border-top: 1px dashed #333; display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; }
+        .footer-stats b { color: #888; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="row-file">
+        <input type="file" id="fileInput" accept=".txt" style="width: 60%; font-size: 0.7rem;">
+        <button class="clear-btn" onclick="clearData()">Xóa nhớ</button>
+    </div>
+
+    <div class="row-display">
+        <div class="display-item">
+            <label>Mặt MM</label>
+            <div id="mmVal" class="val-box">--</div>
+        </div>
+        <div style="width:1px; background:#333; margin: 10px 0;"></div>
+        <div class="display-item">
+            <label>Mặt Ab Nhập</label>
+            <div id="abVal" class="val-box">--</div>
+        </div>
+    </div>
+
+    <div class="row-action">
+        <div class="box-stats">
+            <div class="stat-line c-yellow"><span>🟡 Vàng:</span> <span id="countYellow">0</span></div>
+            <div class="stat-line c-blue" style="margin-top: 5px;"><span>🔵 Xanh:</span> <span id="countBlue">0</span></div>
+        </div>
+        
+        <div class="box-input">
+            <label>NHẬP N</label>
+            <input type="tel" id="inputN" class="n-input" placeholder="?" maxlength="1" inputmode="numeric" autocomplete="off" autofocus>
+        </div>
+
+        <div class="box-range">
+            <label>PHẠM VI ±</label>
+            <input type="number" id="inputRange" class="range-input" value="7" min="0" max="99">
+        </div>
+    </div>
+    
+    <div class="result-wrapper">
+        <div class="text-group">
+            <label>DỮ LIỆU GỐC (MM)</label>
+            <textarea id="extractedText" readonly></textarea>
+        </div>
+        <div class="text-group">
+            <label>PHẠM VI ± (GẦN NHẤT)</label>
+            <textarea id="sortedText" readonly></textarea>
+        </div>
+    </div>
+    
+    <button class="copy-btn" onclick="copyExtracted()">SAO CHÉP KẾT QUẢ ƯU TIÊN</button>
+
+    <div class="footer-stats">
+        <span>Dữ liệu file: <b id="totalCount">0</b> số</span>
+        <span>Mẫu 9 số: <b id="groupCount">0</b></span>
+    </div>
+</div>
+
+<script>
+    const STORAGE_KEY = 'sequence_analyzer_data';
+    let rawData = "";
+    let currentNumbers = []; 
+
+    const nInput = document.getElementById('inputN');
+    const rangeInput = document.getElementById('inputRange');
+    const mmBox = document.getElementById('mmVal');
+    const abBox = document.getElementById('abVal');
+
+    // HÀM FOCUS MẠNH
+    function forceFocus() {
+        setTimeout(() => {
+            nInput.focus();
+            // Một số trình duyệt cần click nhẹ để cho phép focus
+        }, 100);
+    }
+
+    window.onload = () => {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+            rawData = savedData;
+            processFileStats(rawData);
+        }
+        forceFocus();
+    };
+
+    // Khi người dùng click bất kỳ đâu trên trang, tự động trả focus về ô nhập N
+    document.addEventListener('click', (e) => {
+        // Nếu không phải đang bấm vào nút copy hay chọn file thì mới focus
+        if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') {
+            nInput.focus();
+        }
+    });
+
+    rangeInput.addEventListener('input', () => {
+        if (currentNumbers.length === 4) extractSequences();
+    });
+
+    nInput.addEventListener('input', function() {
+        const val = this.value.trim();
+        if (val !== "" && !isNaN(val)) {
+            currentNumbers.push(val);
+            if (currentNumbers.length > 4) currentNumbers.shift();
+            updateDisplay();
+            if (currentNumbers.length === 4) extractSequences();
+        }
+        this.value = "";
+    });
+
+    function updateDisplay() {
+        let m1 = currentNumbers[currentNumbers.length - 4] || "";
+        let m2 = currentNumbers[currentNumbers.length - 3] || "";
+        let a1 = currentNumbers[currentNumbers.length - 2] || "";
+        let a2 = currentNumbers[currentNumbers.length - 1] || "";
+        mmBox.innerText = (m1 + m2) || "--";
+        abBox.innerText = (a1 + a2) || "--";
+    }
+
+    document.getElementById('fileInput').addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        rawData = await file.text();
+        localStorage.setItem(STORAGE_KEY, rawData);
+        processFileStats(rawData);
+        currentNumbers = [];
+        updateDisplay();
+        nInput.focus();
+    });
+
+    function processFileStats(content) {
+        const nums = content.replace(/\D/g, '').split('').map(Number);
+        if (nums.length === 0) return;
+        
+        let groupCount = 0;
+        const isA = (n) => n >= 5, isB = (n) => n < 5;
+        
+        for (let i = 0; i <= nums.length - 9; i++) {
+            let match = false;
+            if (isA(nums[i]) && isA(nums[i+1]) && isB(nums[i+2]) && isB(nums[i+3]) && isA(nums[i+4]) && isB(nums[i+5]) && isA(nums[i+6]) && isB(nums[i+7]) && isA(nums[i+8])) match = true;
+            else if (isB(nums[i]) && isA(nums[i+1]) && isB(nums[i+2]) && isA(nums[i+3]) && isB(nums[i+4]) && isA(nums[i+5]) && isB(nums[i+6]) && isA(nums[i+7]) && isB(nums[i+8])) match = true;
+            else if (isA(nums[i]) && isB(nums[i+1]) && isA(nums[i+2]) && isB(nums[i+3]) && isA(nums[i+4]) && isB(nums[i+5]) && isA(nums[i+6]) && isB(nums[i+7]) && isA(nums[i+8])) match = true;
+            else if (isB(nums[i]) && isB(nums[i+1]) && isA(nums[i+2]) && isA(nums[i+3]) && isB(nums[i+4]) && isA(nums[i+5]) && isB(nums[i+6]) && isA(nums[i+7]) && isB(nums[i+8])) match = true;
+            if (match) { groupCount++; i += 8; }
+        }
+        
+        document.getElementById('totalCount').innerText = nums.length.toLocaleString();
+        document.getElementById('groupCount').innerText = groupCount.toLocaleString();
+    }
+
+    function extractSequences() {
+        const mm = mmBox.innerText;
+        const abInputStr = abBox.innerText;
+        const abInputVal = parseInt(abInputStr);
+        const userRange = parseInt(rangeInput.value) || 0;
+
+        const areaNormal = document.getElementById('extractedText');
+        const areaSorted = document.getElementById('sortedText');
+        
+        if (mm === "--" || abInputStr === "--") return;
+
+        const nums = rawData.replace(/\D/g, '').split('').map(Number);
+        let allMatches = [];
+        const isA = (n) => n >= 5;
+        const isB = (n) => n < 5;
+
+        for (let i = 0; i <= nums.length - 8; i++) {
+            if (nums[i] === parseInt(mm[0]) && nums[i+1] === parseInt(mm[1])) {
+                let d = nums.slice(i, i + 8);
+                let currentAb = parseInt(`${d[2]}${d[3]}`);
+                let lastFour = d.slice(4);
+                let colorTag = "⚪ ";
+                if (lastFour.every(n => isA(n))) colorTag = "🟡 ";
+                else if (lastFour.every(n => isB(n))) colorTag = "🔵 ";
+
+                allMatches.push({
+                    ab: currentAb,
+                    fullStr: `${colorTag}${d[0]}${d[1]}-${d[2]}${d[3]}-${d[4]}${d[5]} ${d[6]}${d[7]}`,
+                    diff: Math.abs(currentAb - abInputVal)
+                });
+            }
+        }
+
+        areaNormal.value = allMatches.length > 0 
+            ? `[ TẤT CẢ MM:${mm} ]\n` + allMatches.map(m => m.fullStr).join('\n')
+            : "Trống";
+
+        let filteredRange = allMatches.filter(m => m.diff <= userRange);
+        let sorted = filteredRange.sort((a, b) => a.diff - b.diff);
+
+        areaSorted.value = sorted.length > 0
+            ? `[ PHẠM VI ±${userRange} ]\n` + sorted.map(m => m.fullStr).join('\n')
+            : `TRỐNG (±${userRange})`;
+
+        document.getElementById('countYellow').innerText = (areaSorted.value.match(/🟡/g) || []).length;
+        document.getElementById('countBlue').innerText = (areaSorted.value.match(/🔵/g) || []).length;
+    }
+
+    function copyExtracted() {
+        const textArea = document.getElementById('sortedText');
+        if (!textArea.value) return;
+        textArea.select();
+        document.execCommand('copy');
+        alert("Đã copy!");
+        nInput.focus(); // Sau khi copy xong trả focus lại ngay
+    }
+
+    function clearData() {
+        if(confirm("Xóa bộ nhớ?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+</script>
+</body>
+</html>
