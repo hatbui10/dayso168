@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trình Lọc & Sắp Xếp Số</title>
+    <style>
+        :root {
+            --bg-color: #0f0f0f;
+            --card-bg: #1a1a1a;
+            --accent: #00e676;
+            --text: #efefef;
+            --border: #333;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px; /* Thu nhỏ lại cho phù hợp 1 cột */
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+        }
+
+        .section {
+            border: 1px solid var(--border);
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+        }
+
+        .label {
+            font-size: 0.75rem;
+            color: var(--accent);
+            margin-bottom: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        input[type="file"] { display: none; }
+        .upload-btn {
+            display: inline-block;
+            background: #222;
+            padding: 10px 20px;
+            border: 1px solid #444;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #abInput {
+            background: #000;
+            border: 2px solid var(--border);
+            color: var(--accent);
+            font-size: 2.5rem;
+            width: 100px;
+            text-align: center;
+            border-radius: 10px;
+            outline: none;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .column {
+            background: #121212;
+            border: 1px solid #222;
+            border-radius: 8px;
+            height: 500px;
+            overflow-y: auto;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .column-title {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #888;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #222;
+            margin-bottom: 10px;
+            position: sticky;
+            top: 0;
+            background: #121212;
+        }
+
+        .row {
+            padding: 8px;
+            margin: 4px 0;
+            background: #222;
+            border-radius: 4px;
+            font-size: 1.1rem;
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .mm { color: #aaa; font-weight: bold; }
+        .ab { color: var(--accent); font-weight: bold; }
+        .xxx { color: #fff; }
+        .sep { color: #444; }
+
+        .info { font-size: 0.8rem; color: #555; text-align: center; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="section">
+        <div class="label">Bước 1: Tải file dữ liệu</div>
+        <label class="upload-btn">
+            Chọn file (.txt)
+            <input type="file" id="fileInput" accept=".txt">
+        </label>
+        <div id="fileStatus" class="info">Chưa có dữ liệu.</div>
+    </div>
+
+    <div class="section">
+        <div class="label">Bước 2: Nhập số Ab</div>
+        <input type="text" id="abInput" maxlength="2" placeholder="00" autocomplete="off">
+    </div>
+
+    <div class="column">
+        <div class="column-title">SẮP XẾP MM (BÉ → LỚN)</div>
+        <div id="list-sorted"></div>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const abInput = document.getElementById('abInput');
+    const listSorted = document.getElementById('list-sorted');
+    const fileStatus = document.getElementById('fileStatus');
+
+    window.onload = () => {
+        const saved = localStorage.getItem('fileContent');
+        if (saved) fileStatus.innerText = "Dữ liệu đã sẵn sàng.";
+        abInput.focus();
+    };
+
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const text = await file.text();
+        const cleanData = text.replace(/\s+/g, '');
+        localStorage.setItem('fileContent', cleanData);
+        fileStatus.innerText = `Đã lưu file: ${file.name}`;
+        abInput.focus();
+        if (abInput.value.length === 2) performSearch(abInput.value);
+    });
+
+    abInput.addEventListener('input', (e) => {
+        let val = e.target.value.replace(/\D/g, '');
+        e.target.value = val;
+        if (val.length === 2) performSearch(val);
+        else {
+            listSorted.innerHTML = '';
+        }
+    });
+
+    function performSearch(targetAb) {
+        const data = localStorage.getItem('fileContent');
+        if (!data) return;
+
+        listSorted.innerHTML = '';
+        let results = [];
+
+        // Duyệt tìm dữ liệu
+        for (let i = 0; i <= data.length - 10; i += 10) {
+            const chunk = data.substring(i, i + 10);
+            if (chunk.includes(targetAb)) {
+                const abPos = chunk.indexOf(targetAb);
+                const globalIdx = i + abPos;
+
+                const mm = data.substring(globalIdx - 2, globalIdx);
+                const xxx = data.substring(globalIdx + 2, globalIdx + 8);
+
+                if (mm.length === 2) {
+                    results.push({ mm, ab: targetAb, xxx: xxx.padEnd(6, '-') });
+                }
+            }
+        }
+
+        // Sắp xếp theo MM từ bé đến lớn
+        const sortedResults = results.sort((a, b) => parseInt(a.mm) - parseInt(b.mm));
+        
+        // Hiển thị kết quả duy nhất vào cột Sorted
+        sortedResults.forEach(item => {
+            listSorted.appendChild(createRow(item));
+        });
+    }
+
+    function createRow(item) {
+        const div = document.createElement('div');
+        div.className = 'row';
+        div.innerHTML = `
+            <span class="mm">${item.mm}</span>
+            <span class="sep">-</span>
+            <span class="ab">${item.ab}</span>
+            <span class="sep">-</span>
+            <span class="xxx">${item.xxx}</span>
+        `;
+        return div;
+    }
+</script>
+
+</body>
+</html>
