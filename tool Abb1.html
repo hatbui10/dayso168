@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phân Tích Tổ Hợp & Cảnh Báo Khoảng Cách</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --container-bg: #1e1e1e;
+            --border-color: #333;
+            --cell-bg: #2d2d2d;
+            --label-bg: #252525;
+            --primary-color: #3498db;
+            --highlight-color: #f1c40f; 
+            --input-bg: #333;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --container-bg: #fff;
+            --border-color: #ddd;
+            --cell-bg: #fff;
+            --label-bg: #f8f9fa;
+            --primary-color: #2980b9;
+            --input-bg: #fff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            align-items: flex-start;
+        }
+
+        .container {
+            flex: 2;
+            background: var(--container-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* Sidebar ghi log */
+        .log-panel {
+            flex: 1;
+            background: var(--container-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            position: sticky;
+            top: 20px;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--highlight-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        #logList {
+            overflow-y: auto;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .log-item {
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.05);
+            margin-bottom: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.2s;
+            border-left: 3px solid #e74c3c;
+        }
+
+        .log-item:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            background: var(--label-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
+        }
+
+        .rule-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .rule-item label { font-size: 0.8em; color: var(--primary-color); }
+
+        .rule-item input {
+            padding: 5px;
+            text-align: center;
+            background: var(--input-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .grid-header {
+            display: grid;
+            grid-template-columns: repeat(3, 50px) 30px repeat(3, 50px) 40px;
+            gap: 10px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        #numberGrid {
+            display: grid;
+            grid-template-columns: repeat(3, 50px) 30px repeat(3, 50px) 40px;
+            gap: 10px;
+        }
+
+        .cell {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border-color);
+            background: var(--cell-bg);
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .row-index {
+            font-size: 0.7em;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cell.label { border-style: dashed; color: var(--primary-color); }
+
+        .match-highlight {
+            background-color: var(--highlight-color) !important;
+            color: #000 !important;
+            border-color: #f39c12 !important;
+        }
+
+        .separator { width: 30px; }
+
+        button {
+            padding: 8px 15px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background: var(--primary-color);
+            color: white;
+            font-weight: bold;
+        }
+
+        .apply-btn { grid-column: 1 / -1; background: #27ae60; margin-top: 5px; }
+    </style>
+</head>
+<body data-theme="dark">
+
+<div class="main-layout">
+    <div class="container">
+        <h3 style="margin-top:0;">Phân Tích & Cấu Hình</h3>
+
+        <div class="config-grid">
+            <div class="rule-item"><label>AAA</label><input type="text" id="rule_AAA" value="AAb" maxlength="3"></div>
+            <div class="rule-item"><label>AAb</label><input type="text" id="rule_AAb" value="" maxlength="3"></div>
+            <div class="rule-item"><label>AbA</label><input type="text" id="rule_AbA" value="Abb" maxlength="3"></div>
+            <div class="rule-item"><label>Abb</label><input type="text" id="rule_Abb" value="" maxlength="3"></div>
+            <div class="rule-item"><label>bAA</label><input type="text" id="rule_bAA" value="bbb" maxlength="3"></div>
+            <div class="rule-item"><label>bAb</label><input type="text" id="rule_bAb" value="" maxlength="3"></div>
+            <div class="rule-item"><label>bbA</label><input type="text" id="rule_bbA" value="" maxlength="3"></div>
+            <div class="rule-item"><label>bbb</label><input type="text" id="rule_bbb" value="" maxlength="3"></div>
+            <button class="apply-btn" onclick="renderLogic()">Áp Dụng Quy Tắc</button>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-bottom:20px;">
+            <input type="file" id="fileInput" accept=".txt" style="flex-grow:1;">
+            <button onclick="toggleDarkMode()" style="background:#7f8c8d">Sáng/Tối</button>
+            <button onclick="clearData()" style="background:#e74c3c">Xóa</button>
+        </div>
+
+        <div class="grid-header">
+            <span>S1</span><span>S2</span><span>S3</span><span></span><span>K1</span><span>K2</span><span>K3</span><span>#</span>
+        </div>
+        <div id="numberGrid"></div>
+    </div>
+
+    <div class="log-panel">
+        <div class="log-title">Cảnh báo khoảng cách (>4)</div>
+        <ul id="logList"></ul>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const numberGrid = document.getElementById('numberGrid');
+    const logList = document.getElementById('logList');
+    const patterns = ['AAA', 'AAb', 'AbA', 'Abb', 'bAA', 'bAb', 'bbA', 'bbb'];
+    let rawNumbers = localStorage.getItem('savedNumbers') || "";
+
+    window.onload = () => {
+        patterns.forEach(p => {
+            const saved = localStorage.getItem('rule_' + p);
+            if (saved) document.getElementById('rule_' + p).value = saved;
+        });
+        if (rawNumbers) renderLogic();
+    };
+
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            rawNumbers = event.target.result.replace(/\D/g, '');
+            localStorage.setItem('savedNumbers', rawNumbers);
+            renderLogic();
+        };
+        reader.readAsText(file);
+    });
+
+    function getNumType(char) {
+        let n = parseInt(char);
+        return (n >= 5) ? 'A' : 'b'; 
+    }
+
+    function renderLogic() {
+        patterns.forEach(p => localStorage.setItem('rule_' + p, document.getElementById('rule_' + p).value.trim()));
+        
+        numberGrid.innerHTML = "";
+        logList.innerHTML = "";
+        const fragment = document.createDocumentFragment();
+        
+        let groups = [];
+        for (let i = 0; i < rawNumbers.length; i += 3) {
+            groups.push(rawNumbers.substring(i, i + 3));
+        }
+
+        let nextLabels = ["", "", ""];
+        let lastHighlightRow = -1; // Theo dõi hàng cuối cùng có tô vàng
+
+        groups.forEach((group, index) => {
+            const rowId = `row-${index}`;
+            let hasHighlight = false;
+
+            // Ô thực tế
+            for (let i = 0; i < 3; i++) {
+                const div = document.createElement('div');
+                div.className = 'cell';
+                div.textContent = group[i] || "-";
+                fragment.appendChild(div);
+            }
+
+            // Phân cách
+            const sep = document.createElement('div');
+            sep.className = 'separator';
+            fragment.appendChild(sep);
+
+            // Ô dự đoán
+            for (let i = 0; i < 3; i++) {
+                const div = document.createElement('div');
+                div.className = 'cell label';
+                div.textContent = nextLabels[i];
+
+                if (nextLabels[i] !== "" && group[i]) {
+                    if (getNumType(group[i]) === nextLabels[i]) {
+                        div.classList.add('match-highlight');
+                        hasHighlight = true;
+                    }
+                }
+                fragment.appendChild(div);
+            }
+
+            // Chỉ số hàng (Để nhảy tới)
+            const idxDiv = document.createElement('div');
+            idxDiv.className = 'row-index';
+            idxDiv.id = rowId;
+            idxDiv.textContent = index + 1;
+            fragment.appendChild(idxDiv);
+
+            // LOGIC KHOẢNG CÁCH
+            if (hasHighlight) {
+                if (lastHighlightRow !== -1) {
+                    let distance = index - lastHighlightRow - 1;
+                    if (distance > 4) {
+                        const li = document.createElement('li');
+                        li.className = 'log-item';
+                        li.textContent = `Hàng ${lastHighlightRow + 1} -> ${index + 1}: Trống ${distance} hàng`;
+                        li.onclick = () => document.getElementById(`row-${lastHighlightRow + 1}`).scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        logList.appendChild(li);
+                    }
+                }
+                lastHighlightRow = index;
+            }
+
+            // Tính cho hàng sau
+            if (group.length === 3) {
+                let currentPattern = "";
+                for(let char of group) currentPattern += getNumType(char);
+                let ruleStr = document.getElementById('rule_' + currentPattern).value.trim();
+                nextLabels = ruleStr.length === 3 ? ruleStr.split('') : ["", "", ""];
+            } else {
+                nextLabels = ["", "", ""];
+            }
+        });
+
+        numberGrid.appendChild(fragment);
+    }
+
+    function toggleDarkMode() {
+        const current = document.body.getAttribute('data-theme');
+        document.body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    }
+
+    function clearData() {
+        if (confirm("Xóa hết?")) {
+            localStorage.removeItem('savedNumbers');
+            location.reload();
+        }
+    }
+</script>
+</body>
+</html>
