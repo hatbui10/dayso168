@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phân Tích Logic - Siêu Tốc Độ</title>
+    <style>
+        :root {
+            --bg-color: #121212; --text-color: #e0e0e0; --container-bg: #1e1e1e;
+            --border-color: #333; --cell-bg: #2d2d2d; --primary-color: #3498db;
+            --highlight-color: #f1c40f; --input-bg: #333; --accent-color: #e67e22;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg-color); color: var(--text-color);
+            margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; padding: 20px;
+        }
+        .main-layout { display: flex; gap: 20px; max-width: 1400px; margin: 0 auto; flex: 1; width: 100%; overflow: hidden; }
+        
+        .left-panel { flex: 2.5; overflow-y: auto; background: var(--container-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
+        .log-panel { flex: 1; background: var(--container-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; overflow: hidden; }
+        
+        .log-title { font-weight: bold; margin-bottom: 10px; color: var(--highlight-color); border-bottom: 1px solid #444; padding-bottom: 5px; text-align: center; }
+        #logList { overflow-y: auto; list-style: none; padding: 0; margin: 0; }
+        .log-item { padding: 10px; background: rgba(255,255,255,0.05); margin-bottom: 8px; border-radius: 6px; border-left: 4px solid #e74c3c; font-size: 0.85em; }
+
+        #numberGrid { display: grid; gap: 8px; justify-content: center; padding-bottom: 50px; }
+        .cell { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border-color); background: var(--cell-bg); font-weight: bold; border-radius: 4px; font-size: 14px; }
+        .cell.label { border-style: dashed; color: var(--primary-color); }
+        .match-highlight { background-color: var(--highlight-color) !important; color: #000 !important; box-shadow: 0 0 10px var(--highlight-color); }
+        .row-index { color: #666; font-size: 0.75em; display: flex; align-items: center; justify-content: center; }
+        
+        .config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 10px; margin-bottom: 15px; background: #252525; padding: 15px; border-radius: 8px; max-height: 200px; overflow-y: auto; }
+        .rule-item { display: flex; flex-direction: column; align-items: center; }
+        .rule-item label { font-size: 10px; margin-bottom: 4px; color: #aaa; }
+        .rule-item input { width: 90%; padding: 4px; background: var(--input-bg); color: #fff; border: 1px solid #444; text-align: center; border-radius: 4px; font-size: 12px; }
+        
+        .control-bar { background: #2c3e50; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: center; }
+        .input-group { display: flex; align-items: center; gap: 8px; background: #1a1a1a; padding: 5px 12px; border-radius: 4px; border: 1px solid var(--primary-color); }
+        .input-group label { font-size: 11px; font-weight: bold; color: var(--primary-color); }
+        .input-group input { width: 75px; padding: 5px; background: transparent; border: none; color: white; font-weight: bold; text-align: center; }
+
+        button { cursor: pointer; padding: 10px 15px; border: none; font-weight: bold; border-radius: 4px; color: white; transition: 0.3s; font-size: 12px; }
+        .btn-run { background: #27ae60; }
+        .btn-scan { background: #e67e22; border: 2px solid #fff; }
+        .btn-clear { background: #e74c3c; }
+        
+        #scanStatus { text-align: center; font-size: 14px; color: #f1c40f; margin-top: 5px; min-height: 1.5em; font-family: monospace; background: #000; padding: 10px; border-radius: 6px; border: 1px solid #444; }
+        #liveCount { color: #2ecc71; font-size: 1.5em; margin-left: 10px; text-shadow: 0 0 5px #2ecc71; }
+    </style>
+</head>
+<body>
+
+<div class="main-layout">
+    <div class="left-panel">
+        <div id="ruleConfig" class="config-grid"></div>
+
+        <div class="control-bar">
+            <div class="input-group">
+                <label>CỤM:</label>
+                <input type="number" id="clusterSizeInput" value="3" onchange="updateClusterSize()">
+            </div>
+            <div class="input-group">
+                <label>TRỐNG < :</label>
+                <input type="number" id="maxGapInput" value="7">
+            </div>
+            <div class="input-group">
+                <label>TỔNG MẪU:</label>
+                <input type="number" id="scanLimitInput" value="1000000">
+            </div>
+            <div class="input-group">
+                <label>MẪU/GIÂY:</label>
+                <input type="number" id="speedInput" value="100000">
+            </div>
+            <button class="btn-run" onclick="renderLogic()">CHẠY TAY</button>
+            <button class="btn-scan" onclick="startAutoScan()">⚡ SIÊU QUÉT</button>
+        </div>
+
+        <div style="margin-bottom:15px; display:flex; gap:10px; align-items: center;">
+            <input type="file" id="fileInput" accept=".txt" style="flex:1; background:#333; padding:5px; border-radius:4px;">
+            <button class="btn-clear" onclick="clearAll()">XÓA HẾT</button>
+        </div>
+        
+        <div id="scanStatus">
+            <span id="statusLabel">TRẠNG THÁI:</span>
+            <b id="liveCount">0000000</b>
+        </div>
+        <hr style="border:0; border-top:1px solid #333; margin: 20px 0;">
+        <div id="numberGrid"></div>
+    </div>
+
+    <div class="log-panel">
+        <div class="log-title" id="logTitle">LOG TRỐNG</div>
+        <ul id="logList"></ul>
+    </div>
+</div>
+
+<script>
+    const numberGrid = document.getElementById('numberGrid');
+    const logList = document.getElementById('logList');
+    const statusLabel = document.getElementById('statusLabel');
+    const liveCount = document.getElementById('liveCount');
+    const clusterSizeInput = document.getElementById('clusterSizeInput');
+    const speedInput = document.getElementById('speedInput');
+    const ruleConfig = document.getElementById('ruleConfig');
+    
+    let rawNumbers = localStorage.getItem('savedNumbers') || "";
+    let globalRules = JSON.parse(localStorage.getItem('globalRules') || "{}");
+    let isScanning = false;
+
+    function updateClusterSize() {
+        saveCurrentInputs();
+        initRuleInputs();
+        if (rawNumbers) renderLogic();
+    }
+
+    function saveCurrentInputs() {
+        const inputs = ruleConfig.querySelectorAll('input');
+        inputs.forEach(input => {
+            const key = input.id.replace('rule_', '');
+            if (input.value.trim() !== "") globalRules[key] = input.value.trim();
+        });
+        localStorage.setItem('globalRules', JSON.stringify(globalRules));
+    }
+
+    function initRuleInputs() {
+        const size = parseInt(clusterSizeInput.value);
+        const total = Math.pow(2, size);
+        ruleConfig.innerHTML = "";
+        for (let i = 0; i < total; i++) {
+            let p = i.toString(2).padStart(size, '0').replace(/0/g, 'A').replace(/1/g, 'b');
+            const div = document.createElement('div');
+            div.className = 'rule-item';
+            div.innerHTML = `<label>${p}</label><input type="text" id="rule_${p}">`;
+            ruleConfig.appendChild(div);
+            if (globalRules[p]) div.querySelector('input').value = globalRules[p];
+        }
+    }
+
+    window.onload = () => {
+        clusterSizeInput.value = localStorage.getItem('clusterSize') || "3";
+        initRuleInputs();
+    };
+
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            rawNumbers = event.target.result.replace(/\D/g, '');
+            localStorage.setItem('savedNumbers', rawNumbers);
+            renderLogic();
+        };
+        reader.readAsText(file);
+    });
+
+    function getNumType(char) { return (parseInt(char) >= 5) ? 'A' : 'b'; }
+
+    function checkLogicFast(currentRules, limit, size, groupsData) {
+        let lastIdx = -1;
+        let nextLabels = null;
+        for (let i = 0; i < groupsData.length; i++) {
+            const g = groupsData[i];
+            if (nextLabels) {
+                for (let j = 0; j < size; j++) {
+                    if (nextLabels[j] === g.types[j]) {
+                        if (lastIdx !== -1 && (g.indices[j] - lastIdx - 1 >= limit)) return false;
+                        lastIdx = g.indices[j];
+                    }
+                }
+            }
+            const r = currentRules[g.p];
+            nextLabels = (r && r.length === size) ? r : null;
+        }
+        return lastIdx !== -1;
+    }
+
+    async function startAutoScan() {
+        if (!rawNumbers || isScanning) return;
+        isScanning = true;
+        
+        const startTime = performance.now(); // Bắt đầu tính giờ
+        const size = parseInt(clusterSizeInput.value);
+        const limit = parseInt(document.getElementById('maxGapInput').value);
+        const scanMax = parseInt(document.getElementById('scanLimitInput').value);
+        
+        statusLabel.textContent = "🚀 ĐANG QUÉT:";
+
+        const groupsData = [];
+        for (let i = 0; i < rawNumbers.length; i += size) {
+            let group = rawNumbers.substring(i, i + size);
+            if (group.length < size) break;
+            let p = ""; let types = []; let indices = [];
+            for (let j = 0; j < size; j++) {
+                const t = getNumType(group[j]);
+                p += t; types.push(t); indices.push(i + j + 1);
+            }
+            groupsData.push({ p, types, indices });
+        }
+
+        const patterns = [];
+        const numP = Math.pow(2, size);
+        for (let i = 0; i < numP; i++) {
+            patterns.push(i.toString(2).padStart(size, '0').replace(/0/g, 'A').replace(/1/g, 'b'));
+        }
+
+        let i = 0;
+        const runBatch = async () => {
+            const speed = parseInt(speedInput.value) || 100000;
+            const batchSize = Math.max(1, Math.floor(speed / 60)); 
+
+            for (let b = 0; b < batchSize && i < scanMax; b++) {
+                i++;
+                let testRules = {};
+                for(let j=0; j < patterns.length; j++) {
+                    testRules[patterns[j]] = patterns[Math.floor(Math.random() * patterns.length)];
+                }
+
+                if (checkLogicFast(testRules, limit, size, groupsData)) {
+                    const endTime = performance.now();
+                    const duration = ((endTime - startTime) / 1000).toFixed(2); // Tính giây
+
+                    patterns.forEach(p => {
+                        const el = document.getElementById('rule_' + p);
+                        if(el) el.value = testRules[p];
+                        globalRules[p] = testRules[p];
+                    });
+                    
+                    saveCurrentInputs();
+                    renderLogic();
+                    
+                    statusLabel.textContent = `✅ TÌM THẤY (${duration}s):`;
+                    liveCount.textContent = i.toLocaleString();
+                    isScanning = false;
+                    return;
+                }
+            }
+
+            // Hiển thị số nhảy liên tục
+            liveCount.textContent = i.toString().padStart(7, '0');
+
+            if (i < scanMax && isScanning) {
+                requestAnimationFrame(runBatch);
+            } else {
+                isScanning = false;
+                if(i >= scanMax) statusLabel.textContent = "❌ THẤT BẠI:";
+            }
+        };
+
+        requestAnimationFrame(runBatch);
+    }
+
+    function renderLogic() {
+        const size = parseInt(clusterSizeInput.value);
+        const limit = parseInt(document.getElementById('maxGapInput').value);
+        saveCurrentInputs();
+        numberGrid.style.gridTemplateColumns = `repeat(${size}, 40px) 25px repeat(${size}, 40px) 40px`;
+        numberGrid.innerHTML = ""; logList.innerHTML = "";
+        
+        let nextLabels = Array(size).fill("");
+        let lastIdx = -1;
+
+        for (let i = 0; i < rawNumbers.length; i += size) {
+            let group = rawNumbers.substring(i, i + size);
+            let rowIndex = Math.floor(i / size) + 1;
+
+            for (let j = 0; j < size; j++) {
+                const div = document.createElement('div');
+                div.className = 'cell'; div.textContent = group[j] || "-";
+                numberGrid.appendChild(div);
+            }
+            numberGrid.appendChild(document.createElement('div'));
+            for (let j = 0; j < size; j++) {
+                const div = document.createElement('div');
+                div.className = 'cell label';
+                div.textContent = nextLabels[j];
+                const charType = group[j] ? getNumType(group[j]) : null;
+                const currentIdx = i + j + 1;
+
+                if (nextLabels[j] !== "" && charType === nextLabels[j]) {
+                    div.classList.add('match-highlight');
+                    if (lastIdx !== -1 && (currentIdx - lastIdx - 1 >= limit)) {
+                        const li = document.createElement('li');
+                        li.className = 'log-item';
+                        li.textContent = `TRỐNG: ${currentIdx - lastIdx - 1} (Dòng ${rowIndex})`;
+                        logList.appendChild(li);
+                    }
+                    lastIdx = currentIdx;
+                }
+                numberGrid.appendChild(div);
+            }
+            const idxDiv = document.createElement('div');
+            idxDiv.className = 'row-index'; idxDiv.textContent = rowIndex;
+            numberGrid.appendChild(idxDiv);
+
+            let p = ""; for (let char of group) p += getNumType(char);
+            if (p.length === size) {
+                let r = globalRules[p] || "";
+                nextLabels = r.length === size ? r.split('') : Array(size).fill("");
+            } else { nextLabels = Array(size).fill(""); }
+        }
+    }
+
+    function clearAll() { localStorage.clear(); location.reload(); }
+</script>
+</body>
+</html>
