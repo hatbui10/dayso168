@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Tô dãy sạch - Không quá n ký tự</title>
+    <style>
+        body {
+            background: #020617;
+            color: white;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+        }
+
+        input, button {
+            padding: 10px;
+            margin: 5px;
+            border-radius: 6px;
+            border: none;
+            outline: none;
+            font-size: 14px;
+        }
+
+        input[type="number"] {
+            width: 150px;
+            background: #1e293b;
+            color: #facc15;
+            font-weight: bold;
+            border: 1px solid #334155;
+        }
+
+        button {
+            background: #334155;
+            color: white;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #475569;
+        }
+
+        .grid {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, 40px);
+            gap: 6px;
+            justify-content: center;
+        }
+
+        .cell {
+            width: 40px;
+            height: 40px;
+            background: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        /* Hiệu ứng neon cho dãy sạch */
+        .highlight {
+            background: #facc15;
+            color: black;
+            font-weight: bold;
+            box-shadow: 0 0 12px #facc15;
+        }
+
+        #count {
+            margin-top: 15px;
+            font-size: 18px;
+            color: #22c55e;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Tô dãy sạch (Không quá n số liên tiếp) 🚀</h2>
+
+    <input type="file" id="fileInput">
+    <input type="number" id="n" value="4" placeholder="Nhập n (VD: 4)" oninput="handleRender()">
+
+    <br>
+    <div id="count">Tổng số: 0</div>
+
+    <div class="grid" id="grid"></div>
+</div>
+
+<script>
+    let data = [];
+
+    // Lắng nghe chọn file
+    document.getElementById("fileInput").addEventListener("change", function(e) {
+        let file = e.target.files[0];
+        if (!file) return;
+
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            let text = e.target.result;
+            // Chỉ lấy số
+            data = text.replace(/[^0-9]/g, "").split("");
+            document.getElementById("count").innerText = "Tổng số: " + data.length;
+            localStorage.setItem("saved_data", JSON.stringify(data));
+            handleRender();
+        };
+        reader.readAsText(file);
+    });
+
+    function handleRender() {
+        render(data);
+    }
+
+    function render(arr) {
+        const grid = document.getElementById("grid");
+        grid.innerHTML = "";
+        if (!arr || arr.length === 0) return;
+
+        const n = parseInt(document.getElementById("n").value);
+        const cells = [];
+
+        // 1. Vẽ toàn bộ các ô số lên màn hình
+        arr.forEach((num) => {
+            let div = document.createElement("div");
+            div.className = "cell";
+            div.innerText = num;
+            cells.push(div);
+            grid.appendChild(div);
+        });
+
+        if (isNaN(n) || n <= 0) return;
+
+        // 2. Logic tìm dãy sạch
+        // Một dãy được gọi là "bẩn" nếu có > n số A liên tiếp HOẶC > n số B liên tiếp
+        
+        let start = 0;
+        let currentChainCount = 1;
+        
+        // Mảng đánh dấu xem vị trí nào là "vi phạm"
+        let isViolation = new Array(arr.length).fill(false);
+
+        for (let i = 0; i < arr.length; i++) {
+            let typeI = parseInt(arr[i]) < 5 ? "B" : "A";
+            let typePrev = i > 0 ? (parseInt(arr[i-1]) < 5 ? "B" : "A") : null;
+
+            if (typeI === typePrev) {
+                currentChainCount++;
+            } else {
+                currentChainCount = 1;
+            }
+
+            // Nếu vượt quá n, đánh dấu cả cụm đó là vùng vi phạm
+            if (currentChainCount > n) {
+                // Đánh dấu từ vị trí bắt đầu chuỗi này cho đến hiện tại là vi phạm
+                for (let j = i - (currentChainCount - 1); j <= i; j++) {
+                    isViolation[j] = true;
+                }
+            }
+        }
+
+        // 3. Tô màu những đoạn không bị đánh dấu vi phạm
+        // Ở đây ta duyệt tìm các "khoảng trống" giữa các điểm vi phạm
+        let groupStart = -1;
+        for (let k = 0; k <= arr.length; k++) {
+            // Nếu là ô sạch và chưa bắt đầu group
+            if (k < arr.length && !isViolation[k]) {
+                if (groupStart === -1) groupStart = k;
+            } else {
+                // Nếu gặp ô vi phạm hoặc hết mảng, thì kết thúc group và tô màu
+                if (groupStart !== -1) {
+                    for (let m = groupStart; m < k; m++) {
+                        cells[m].classList.add("highlight");
+                    }
+                    groupStart = -1;
+                }
+            }
+        }
+    }
+
+    // Tự động load dữ liệu cũ nếu có
+    window.onload = function() {
+        let saved = localStorage.getItem("saved_data");
+        if (saved) {
+            data = JSON.parse(saved);
+            document.getElementById("count").innerText = "Tổng số: " + data.length;
+            handleRender();
+        }
+    }
+</script>
+
+</body>
+</html>
